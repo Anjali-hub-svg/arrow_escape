@@ -1,1 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Arrow Clearer: 200 Clean Levels</title>
+<style>body { background: #fdfdfd; margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+#header { width: 100%; background: #001233; color: white; padding: 15px 0;
+display: flex; justify-content: center; gap: 40px; font-weight: bold; font-size: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.stat-val { color: #4cc9f0; margin-left: 5px; }
+#game-container { position: relative; margin-top: 25px; width: 800px; height:
+550px; }
+canvas { background: white; border: 4px solid #001233; border-radius: 12px; cursor: pointer; box-shadow: 0 10px 40px rgba(0,0,0,0.1); display: block; }
+#overlay {
+position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+background: rgba(0, 18, 51, 0.95); border-radius: 12px;
+display: flex; flex-direction: column; align-items: center; justify-content:
+center;
+color: white; z-index: 10;
+}
+#overlay h1 { font-size: 48px; margin-bottom: 10px; color: #4cc9f0; }
+.controls { margin-top: 20px; display: flex; gap: 15px; }
+button { padding: 15px 30px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px; text-transform: uppercase; }
+.btn-start { background: #4cc9f0; color: #001233; font-size: 24px; }
+.btn-n { background: #4361ee; }
+.btn-h { background: #f72585; }
+.btn-e { background: #7209b7; }
+  button:hover { transform: translateY(-3px); filter: brightness(1.1); }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="header">
+<div>LEVEL: <span id="ui-lvl" class="stat-val">1</span></div>
+<div>LIVES: <span id="ui-lives" class="stat-val">3</span></div>
+<div>MODE: <span id="ui-mode" class="stat-val">NORMAL</span></div>
+</div>
+<div id="game-container">
+<div id="overlay">
+<h1>ARROW CLEARER</h1>
+<p>Strategic Logic Puzzle | 200 Levels</p>
+<button class="btn-start" onclick="game.startGame()">START GAME</button>
+</div>
+<canvas id="gameCanvas" width="800" height="550"></canvas>
+</div>
+<div class="controls">
+<button class="btn-n" onclick="game.setDifficulty('NORMAL')">Normal</button>
+<button class="btn-h" onclick="game.setDifficulty('HARD')">Hard</button>
+<button class="btn-e" onclick="game.setDifficulty('EXPERT')">Expert</button>
+</div>
+<script>
+const game = {
+canvas: document.getElementById('gameCanvas'),
+ctx: document.getElementById('gameCanvas').getContext('2d'), GRID: 40,
+lvl: 1,
+lives: 3,
+mode: 'NORMAL',
+arrows: [], occupied: new Set(), isPlaying: false,
+startGame() {
+document.getElementById('overlay').classList.add('hidden'); this.isPlaying = true;
+this.init();
+},
 
+setDifficulty(m) { this.mode = m;
+this.lvl = (m === 'NORMAL') ? 1 : (m === 'HARD' ? 71 : 141);
+if (this.isPlaying) this.init(); else {
+document.getElementById('ui-mode').innerText = this.mode; document.getElementById('ui-lvl').innerText = this.lvl;
+}
+},
+init() {
+this.arrows = []; this.occupied.clear(); this.lives = 3; this.updateUI();
+let arrowCount = 6 + Math.floor((this.lvl % 70) / 10); let maxBends = 1;
+if (this.mode === 'HARD') { arrowCount += 6; maxBends = 2; }
+if (this.mode === 'EXPERT') { arrowCount += 12; maxBends = 3; }
+
+let seed = this.lvl * 157.3; const rnd = () => {
+seed = (seed * 9301 + 49297) % 233280; return seed / 233280;
+};
+let attempts = 0;
+while (this.arrows.length < arrowCount && attempts < 500) { attempts++;
+let sx = Math.floor(rnd() * 18) + 1; let sy = Math.floor(rnd() * 12) + 1;
+if (this.occupied.has(`${sx},${sy}`)) continue; let points = [{x: sx, y: sy}];
+let tempOccupied = [`${sx},${sy}`];
+let lastDir = {dx: 0, dy: 0};
+let bends = Math.floor(rnd() * (maxBends + 1)); let validArrow = true;
+for (let b = 0; b <= bends; b++) {
+let dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}]
+.filter(d => d.dx !== -lastDir.dx || d.dy !== -lastDir.dy); let d = dirs[Math.floor(rnd() * dirs.length)];
+let len = Math.floor(rnd() * 3) + 2;
+for (let k = 1; k <= len; k++) {
+let nx = points[points.length-1].x + d.dx;
+let ny = points[points.length-1].y + d.dy;
+
+if (nx < 1 || nx > 19 || ny < 1 || ny > 13 || this.occupied.has(`${nx},${ny}`) || tempOccupied.includes(`${nx},${ny}`)) {
+validArrow = false; break;
+}
+points.push({x: nx, y: ny}); tempOccupied.push(`${nx},${ny}`);
+}
+if (!validArrow) break; lastDir = d;
+}
+if (validArrow) {
+tempOccupied.forEach(coord => this.occupied.add(coord)); this.arrows.push({ points, dx: lastDir.dx, dy: lastDir.dy });
+}
+}
+this.draw();
+},
+updateUI() {
+document.getElementById('ui-lvl').innerText = this.lvl; document.getElementById('ui-lives').innerText = this.lives; document.getElementById('ui-mode').innerText = this.mode;
+},
+draw() {
+this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); this.ctx.strokeStyle = "#f5f5f5";
+this.ctx.lineWidth = 1;
+for(let x=0; x<=800; x+=40) { this.ctx.beginPath(); this.ctx.moveTo(x,0); this.ctx.lineTo(x,550); this.ctx.stroke(); }
+for(let y=0; y<=550; y+=40) { this.ctx.beginPath(); this.ctx.moveTo(0,y); this.ctx.lineTo(800,y); this.ctx.stroke(); }
+this.arrows.forEach(a => { this.ctx.beginPath(); this.ctx.lineWidth = 14; this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round'; this.ctx.strokeStyle = '#001233';
+this.ctx.moveTo(a.points[0].x * 40, a.points[0].y * 40);
+for(let i=1; i<a.points.length; i++) this.ctx.lineTo(a.points[i].x * 40, a.points[i].y * 40);
+this.ctx.stroke();
+
+const tip = a.points[a.points.length - 1]; this.ctx.save();
+this.ctx.translate(tip.x * 40, tip.y * 40);
+this.ctx.rotate(Math.atan2(a.dy, a.dx)); this.ctx.beginPath();
+this.ctx.moveTo(0, -10); this.ctx.lineTo(16, 0); this.ctx.lineTo(0, 10);
+this.ctx.fillStyle = '#001233'; this.ctx.fill(); this.ctx.restore();
+});
+},
+handleClick(ex, ey) {
+if (!this.isPlaying) return;
+const rect = this.canvas.getBoundingClientRect(); const mx = ex - rect.left, my = ey - rect.top;
+for (let i = this.arrows.length - 1; i >= 0; i--) { let a = this.arrows[i], hit = false;
+for (let j = 0; j < a.points.length - 1; j++) {
+let p1 = {x: a.points[j].x * 40, y: a.points[j].y * 40};
+let p2 = {x: a.points[j+1].x * 40, y: a.points[j+1].y * 40};
+if (this.distToSeg({x: mx, y: my}, p1, p2) < 18) { hit = true; break; }
+}
+if (hit) { this.process(a, i); return; }
+}
+},
+distToSeg(p, v, w) {
+let l2 = Math.pow(v.x-w.x,2)+Math.pow(v.y-w.y,2);
+if (l2==0) return Math.sqrt(Math.pow(p.x-v.x,2)+Math.pow(p.y-v.y,2));
+let t = Math.max(0, Math.min(1, ((p.x-v.x)*(w.x-v.x)+(p.y-v.y)*(w.y-v.y))/l2));
+return Math.sqrt(Math.pow(p.x-(v.x+t*(w.x-v.x)),2)+Math.pow(p.y-(v.y+t*(w.y- v.y)),2));
+},
+process(arrow, index) {
+const head = arrow.points[arrow.points.length - 1]; let blocked = false;
+this.arrows.forEach((other, oi) => {
+if (index === oi) return;
+for (let j = 0; j < other.points.length - 1; j++) {
+if (this.ray(other.points[j], other.points[j+1], head, arrow.dx, arrow.dy)) blocked = true;
+}
+});
+if (blocked) {
+this.lives--; this.updateUI();
+if (this.lives <= 0) { alert("Game Over!"); this.init(); }
+} else {
+arrow.points.forEach(p => this.occupied.delete(`${p.x},${p.y}`)); this.arrows.splice(index, 1);
+if (this.arrows.length === 0) { this.lvl++; alert("Level Clear!"); this.init(); }
+this.draw();
+}
+},
+ray(p1, p2, start, dx, dy) {
+const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x); const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+if (dx !== 0) return (start.y >= minY && start.y <= maxY && (dx > 0 ? maxX >
+start.x : minX < start.x));
+return (start.x >= minX && start.x <= maxX && (dy > 0 ? maxY > start.y : minY < start.y));
+}
+};
+game.canvas.addEventListener('mousedown', (e) => game.handleClick(e.clientX, e.clientY));
+</script>
+</body>
+</html>
